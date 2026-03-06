@@ -8,6 +8,13 @@ function WeatherApp(apiKey) {
     this.searchBtn = document.getElementById('search-btn');
     this.cityInput = document.getElementById('city-input');
     this.weatherDisplay = document.getElementById('weather-display');
+    this.recentSearchesSection = document.getElementById('recent-searches-section');
+    this.recentSearchesContainer = document.getElementById('recent-searches-container');
+    this.clearHistoryBtn = document.getElementById('clear-history-btn');
+
+    // Initialize recent searches array
+    this.recentSearches = [];
+    this.maxRecentSearches = 5;
 
     // Initialize the app
     this.init();
@@ -17,7 +24,13 @@ function WeatherApp(apiKey) {
 WeatherApp.prototype.init = function() {
     this.searchBtn.addEventListener('click', this.handleSearch.bind(this));
     this.cityInput.addEventListener('keypress', this.handleKeyPress.bind(this));
-    this.showWelcome();
+    this.clearHistoryBtn.addEventListener('click', this.clearHistory.bind(this));
+
+    // Load recent searches from localStorage
+    this.loadRecentSearches();
+
+    // Load last searched city
+    this.loadLastCity();
 };
 
 // Handle search button click
@@ -70,6 +83,12 @@ WeatherApp.prototype.getWeather = async function(city) {
 
         // Display forecast
         this.displayForecast(forecastResponse);
+
+        // Save this successful search to recent searches
+        this.saveRecentSearch(city);
+
+        // Save as last searched city
+        localStorage.setItem('lastCity', city);
 
     } catch (error) {
         console.error('Error:', error);
@@ -165,6 +184,90 @@ WeatherApp.prototype.displayForecast = function(data) {
 
     // Append forecast to existing weather display
     this.weatherDisplay.innerHTML += forecastSection;
+};
+
+// Load recent searches from localStorage
+WeatherApp.prototype.loadRecentSearches = function() {
+    const saved = localStorage.getItem('recentSearches');
+    if (saved) {
+        this.recentSearches = JSON.parse(saved);
+    }
+    this.displayRecentSearches();
+};
+
+// Save a new recent search
+WeatherApp.prototype.saveRecentSearch = function(city) {
+    // Convert city to title case for consistency
+    const cityName = city.charAt(0).toUpperCase() + city.slice(1).toLowerCase();
+
+    // Check if city already exists in array, remove it if it does
+    const index = this.recentSearches.indexOf(cityName);
+    if (index > -1) {
+        this.recentSearches.splice(index, 1);
+    }
+
+    // Add city to the beginning of array
+    this.recentSearches.unshift(cityName);
+
+    // Keep only the last 5 searches
+    if (this.recentSearches.length > this.maxRecentSearches) {
+        this.recentSearches.pop();
+    }
+
+    // Save to localStorage
+    localStorage.setItem('recentSearches', JSON.stringify(this.recentSearches));
+
+    // Update display
+    this.displayRecentSearches();
+};
+
+// Display recent searches as buttons
+WeatherApp.prototype.displayRecentSearches = function() {
+    // Clear existing buttons
+    this.recentSearchesContainer.innerHTML = '';
+
+    // If no recent searches, hide the section
+    if (this.recentSearches.length === 0) {
+        this.recentSearchesSection.style.display = 'none';
+        return;
+    }
+
+    // Show the section
+    this.recentSearchesSection.style.display = 'block';
+
+    // Create a button for each recent search
+    this.recentSearches.forEach(function(city) {
+        const btn = document.createElement('button');
+        btn.className = 'recent-search-btn';
+        btn.textContent = city;
+
+        // Add click handler
+        btn.addEventListener('click', function() {
+            this.cityInput.value = city;
+            this.getWeather(city);
+        }.bind(this));
+
+        this.recentSearchesContainer.appendChild(btn);
+    }.bind(this));
+};
+
+// Load last searched city
+WeatherApp.prototype.loadLastCity = function() {
+    const lastCity = localStorage.getItem('lastCity');
+    if (lastCity) {
+        this.getWeather(lastCity);
+    } else {
+        this.showWelcome();
+    }
+};
+
+// Clear all recent searches
+WeatherApp.prototype.clearHistory = function() {
+    if (confirm('Clear all recent searches?')) {
+        this.recentSearches = [];
+        localStorage.removeItem('recentSearches');
+        this.displayRecentSearches();
+    }
 };
 
 // Display loading state
